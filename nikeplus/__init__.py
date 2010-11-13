@@ -3,6 +3,13 @@ import urllib2
 from cookielib import CookieJar
 from xml.etree.ElementTree import ElementTree
 
+from nikeplus.user import User
+
+
+class NikePlusException(Exception):
+    pass
+
+
 
 class NikePlus(object):
     """
@@ -19,8 +26,10 @@ class NikePlus(object):
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
     def _request(self, path='', data=None, url=None):
-        if not url: url = '%s%s' % (self.BASE_URL, path)
-        if data: data = urllib.urlencode(data)
+        if not url:
+            url = '%s%s' % (self.BASE_URL, path)
+        if data:
+            data = urllib.urlencode(data)
         req = urllib2.Request(url=url, data=data)
         return self.opener.open(req)
 
@@ -31,9 +40,8 @@ class NikePlus(object):
                 return tree
         except AttributeError:
             pass
-        return False
 
-    def authenticate(self):
+    def _authenticate(self):
         self.AUTHENTICATION_URL = 'https://secure-nikeplus.nike.com/services/profileService'
         kwargs = {
             'login': self.login,
@@ -41,11 +49,15 @@ class NikePlus(object):
             'action': 'login',
             'locale': self.locale,
         }
-        return self._valid_tree(self._request(url=self.AUTHENTICATION_URL, data=kwargs))
+        success = self._valid_tree(self._request(url=self.AUTHENTICATION_URL, data=kwargs))
+        if success:
+            raise NikePlusException, "Could not authenticate"
 
-    def user_data(self):
+    def get_user(self):
         path = 'get_user_data.jsp'
-        return self._valid_tree(self._request(path))
+        etree = self._request(path)
+        if self._valid_tree(etree):
+            return User(etree)
 
     def run_list(self):
         path = 'run_list.jsp'
